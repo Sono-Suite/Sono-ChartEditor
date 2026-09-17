@@ -63,28 +63,6 @@ function initMenuInputEngine() {
   process.stdin.on('data', onRawConsoleDataInput);
 }
 
-function executeIsolatedProcess(command, processArgs, label, options = {}, onDoneCallback) {
-  console.log(`--- Starting the Sonolus Server --\n`);
-
-  const child = spawn(command, processArgs, {
-    stdio: ['pipe', 'inherit', 'inherit'],
-    ...options
-  });
-
-  activeChildStdin = child.stdin;
-
-  child.on('close', (code) => {
-    activeChildStdin = null;
-    onDoneCallback(code);
-  });
-
-  child.on('error', (err) => {
-    console.error(`\x1b[31m[Spawn Error]: ${err.message}\x1b[0m\n`);
-    activeChildStdin = null;
-    onDoneCallback(1);
-  });
-}
-
 function handleSelection(label) {
   process.stdout.write('\x1b[2J\x1b[0;0H');
   const workingDir = process.pkg ? path.dirname(process.execPath) : __dirname;
@@ -93,7 +71,7 @@ function handleSelection(label) {
 
   if (label === 'Exit Sub Menu') process.exit(0);
   if (label === 'Update All Subsystems') {
-    const allTools = ['mmw',];
+    const allTools = ['mmw', 'supernova'];
     console.log(`\x1b[95m--- Initializing Global System Update Loop ---\x1b[0m\n`);
 
     const triggerSequentialUpdate = (index) => {
@@ -135,7 +113,8 @@ function handleSelection(label) {
 
 // Hardened, production-ready configuration dependency router
 function verifyAssetDependency(workingDir, assetKey, onReadyCallback, forceDownload = false) {
-  const mmwDir = workingDir
+  const mmwDir = path.join(workingDir, `MikuMikuWorld`);
+  const superNovaDir = path.join(workingDir, `Supernova-win64`);
   const isWin = process.platform === 'win32';
 
   const ASSET_MANIFESTS = {
@@ -147,7 +126,7 @@ function verifyAssetDependency(workingDir, assetKey, onReadyCallback, forceDownl
       extract: (tmp, dest) => {
         console.log(`Extraction in progress...`);
         if (isWin) {
-          execSync(`powershell -Command "Expand-Archive -Path '${tmp}' -DestinationPath '${mmwDir}' -Force"`);
+          execSync(`powershell -Command "Expand-Archive -Path '${tmp}' -DestinationPath '${workingDir}' -Force"`);
         } else {
           // Safeguard: Verify system zip capability before spawning process loops
           try {
@@ -162,17 +141,17 @@ function verifyAssetDependency(workingDir, assetKey, onReadyCallback, forceDownl
     'supernova': {
       repo: 'Purplaxo/SupernovaEditor',
       binary: isWin ? 'Supernova.exe' : 'Supernova',
-      targetDir: mmwDir,
+      targetDir: superNovaDir,
       getPattern: () => isWin ? '-win64.zip' : '-linux-x86_64.AppImage',
       extract: (tmp, dest) => {
         console.log(`Extraction in progress...`);
         if (isWin) {
-          execSync(`powershell -Command "Expand-Archive -Path '${tmp}' -DestinationPath '${mmwDir}' -Force"`);
+          execSync(`powershell -Command "Expand-Archive -Path '${tmp}' -DestinationPath '${workingDir}' -Force"`);
         } else {
           // Safeguard: Verify system zip capability before spawning process loops
           try {
             execSync(`unzip -v`, { stdio: 'ignore' });
-            execSync(`unzip -o "${tmp}" -d "${mmwDir}"`);
+            execSync(`unzip -o "${tmp}" -d "${workingDir}"`);
           } catch (e) {
             throw new Error("Missing system dependency: 'unzip' utility is required on this system profile. Please install it.");
           }
@@ -207,7 +186,6 @@ function verifyAssetDependency(workingDir, assetKey, onReadyCallback, forceDownl
       'Accept': 'application/vnd.github.v3+json'
     }
   };
-  console.log(apiOptions)
 
   https.get(apiOptions, (res) => {
     let data = '';
@@ -415,7 +393,7 @@ function startSonoOverlayProcess(overlayDir, overlayPath, adminNeeded) {
 
 function renderMenu() {
   process.stdout.write('\x1b[2J\x1b[0;0H');
-  console.log(`--- \x1b[96mSono \x1b[95mUtils \x1b[0m(v${ver}) ---\n(Use Arrow Keys, Press Enter to Select)\n`);
+  console.log(`--- \x1b[96mSono \x1b[95mCharts \x1b[0m(v${ver}) ---\n(Use Arrow Keys, Press Enter to Select)\n`);
   MENU_ITEMS.forEach((item, idx) => {
     if (idx == selectedIndex) {
       console.log(`\x1b[32m > [ ${item} ] \x1b[0m`)
